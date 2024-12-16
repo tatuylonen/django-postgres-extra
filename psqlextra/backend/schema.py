@@ -605,21 +605,26 @@ class PostgresSchemaEditor(SchemaEditor):
         )
 
         # create a composite key that includes the partitioning key
-        sql = sql.replace(" PRIMARY KEY", "")
-        if model._meta.pk and model._meta.pk.name not in meta.key:
-            sql = sql[:-1] + ", PRIMARY KEY (%s, %s))" % (
-                self.quote_name(model._meta.pk.name),
-                partitioning_key_sql,
-            )
-        else:
-            sql = sql[:-1] + ", PRIMARY KEY (%s))" % (partitioning_key_sql,)
+        # XXX This code breaks db_tablespace option, which I need
+        # //2024-12-17 ylo
+        #sql = sql.replace(" PRIMARY KEY", "")
+        #if model._meta.pk and model._meta.pk.name not in meta.key:
+        #    sql = sql[:-1] + ", PRIMARY KEY (%s, %s))" % (
+        #        self.quote_name(model._meta.pk.name),
+        #        partitioning_key_sql,
+        #    )
+        #else:
+        #    sql = sql[:-1] + ", PRIMARY KEY (%s))" % (partitioning_key_sql,)
 
         # extend the standard CREATE TABLE statement with
         # 'PARTITION BY ...'
-        sql += self.sql_partition_by % (
+        part_by = self.sql_partition_by % (
             meta.method.upper(),
             partitioning_key_sql,
         )
+        idx = sql.rfind(")")
+        assert idx > 0
+        sql = sql[:idx + 1] + part_by + sql[idx + 1:]
 
         self.execute(sql, params)
 
